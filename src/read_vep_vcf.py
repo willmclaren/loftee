@@ -37,6 +37,7 @@ def main(args):
         if 'CSQ' not in info_field: continue
         annotations = [dict(zip(vep_field_names, x.split('|'))) for x in info_field['CSQ'].split(',') if len(vep_field_names) == len(x.split('|'))]
         lof_annotations = [x for x in annotations if x['LoF'] == 'HC']
+        # canonical_annotations = [x for x in lof_annotations if x['CANONICAL'] == 'YES']
 
         # Code to process annotations and VCF line goes here...
 
