@@ -80,6 +80,19 @@ sub new {
         }
     }
     
+    if (lc($self->{human_ancestor_fa}) ne 'false') {
+        # Check for samtools
+        #my $test = `samtools2`;
+        #print "Got:" . $test . '\n';
+        # Check for human_ancestor.fa
+        #my $human_ancestor_location = $self->{human_ancestor_fa};
+        #my $faidx = `samtools faidx $human_ancestor_location 1:10-10`;
+        # Check for human_ancestor.fa.fai
+        #if (exists) {
+        #    my $faidx = `samtools faidx $human_ancestor_location`;
+        #}
+    }
+    
     return $self;
 }
 
@@ -100,7 +113,13 @@ sub run {
         return {};
     }
     unless ("stop_gained" ~~ @consequences || "splice_acceptor_variant" ~~ @consequences || "splice_donor_variant" ~~ @consequences || "frameshift_variant" ~~ @consequences) {
-        return {};
+        if ("5_prime_UTR_variant" ~~ @consequences && check_novel_start_codon($transcript_variation_allele)) {
+            push(@flags, "NOVEL_START_CODON");
+        } elsif ("initiator_codon_variant" ~~ @consequences) {
+            push(@flags, "START_LOSS");
+        } else {
+            return {};
+        }
     }
     
     my $confidence = 'HC';
@@ -223,6 +242,47 @@ sub get_cds_length {
     }
     my $transcript_cds_length = length($transcript->{cds_seq_cache});
     return $transcript_cds_length;
+}
+
+# Filter in
+sub check_novel_start_codon {
+    my $transcript_variation_allele = shift;
+    my $transcript_variation = $transcript_variation_allele->transcript_variation;
+    my $variation_feature = $transcript_variation_allele->variation_feature;
+    
+    # Get sequence context
+    my $sequence = uc($variation_feature->feature_Slice->expand(2, 2)->seq);
+    #print "Sequence was as: " . $sequence . "\n";
+    
+    # Replace sequence with variant
+    substr($sequence, 2, 1, $transcript_variation_allele->variation_feature_seq);
+    #print "Sequence is now: " . $sequence . "\n";
+    
+    # Flip as needed
+    $sequence = ($transcript_variation->transcript->strand() == -1) ? reverse_complement($sequence)->seq() : $sequence;
+    #print "Sequence is now: " . $sequence . "\n";
+    
+    # Only consider for SNPs for now
+    my $possible_novel_start = (length($sequence) == 5 && $sequence =~ m/ATG/);
+    
+    # Check for frameshift
+    if ($possible_novel_start) {
+        # Get distance to start site
+        my $distance = $transcript_variation->cdna_end() - $transcript_variation->transcript->cdna_coding_start();
+        print "Dist: " . $distance . "\n" if $debug;
+        print "Tx: " . $transcript_variation->transcript->stable_id() . "\n" if $debug;
+        print "Location: " . $variation_feature->end() . "\n" if $debug;
+        
+        # Convert variant distance to codon distance
+        my $codon_start = $distance - 2 + index($sequence, "ATG");
+        
+        print "Codon start: " . $ codon_start . "\n" if $debug;
+        
+        if ($debug) { print (($codon_start % 3 == 0) ? "In frame\n" : "Out of frame!\n"); }
+        return ($codon_start % 3 != 0);
+    }
+    
+    return 0;
 }
 
 # Stop-gain and frameshift annotations
