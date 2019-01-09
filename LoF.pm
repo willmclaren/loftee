@@ -65,7 +65,7 @@ sub new {
     my $self = $class->SUPER::new(@_); # self is a reference to a hash
     
     foreach my $parameter (@{$self->params}) {
-        my @param = split /:/, $parameter;
+        my @param = split /\=/, $parameter;
         if (scalar @param == 2) {
             $self->{$param[0]} = $param[1];
         }

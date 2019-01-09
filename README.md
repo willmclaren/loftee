@@ -64,15 +64,15 @@ Alternatively, VEP can be run with `--dir_plugins` to specify a plugins director
 
 Basic usage:
 
-    perl variant_effect_predictor.pl [--other options to VEP] --plugin LoF
+    vep [--other options to VEP] --plugin LoF
 
 Advanced usage:
 
-    perl variant_effect_predictor.pl [--other options to VEP] --plugin LoF,human_ancestor_fa:/path/to/human_ancestor.fa[.rz]
+    vep [--other options to VEP] --plugin LoF,human_ancestor_fa=/path/to/human_ancestor.fa[.gz]
     
-    perl variant_effect_predictor.pl [--other options to VEP] --plugin LoF,human_ancestor_fa:/path/to/human_ancestor.fa,filter_position:0.05
+    vep [--other options to VEP] --plugin LoF,human_ancestor_fa=/path/to/human_ancestor.fa,filter_position=0.05
 
-Options:
+Options, given as comma-separated key=value pairs:
 
 -   `loftee_path`
 
