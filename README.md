@@ -92,22 +92,34 @@ The Ensembl API can be used to calculate transcript length in two different meth
 
 -   `human_ancestor_fa`
 
-Location of human\_ancestor.fa file (need associated tabix index file),
-available for download here (for samtools 0.1.19 and older):
-[http://www.broadinstitute.org/~konradk/loftee/human\_ancestor.fa.rz](http://www.broadinstitute.org/~konradk/loftee/human_ancestor.fa.rz)
-and [http://www.broadinstitute.org/~konradk/loftee/human\_ancestor.fa.rz.fai](http://www.broadinstitute.org/~konradk/loftee/human_ancestor.fa.rz.fai).
-Courtesy of Javier Herrero and the 1000 Genomes Project
-(source:
-[ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/phase1/analysis_results/supporting/ancestral_alignments/](ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/phase1/analysis_results/supporting/ancestral_alignments/)). samtools 1.x
-uses bgzipped inputs for samtools faidx and downloads are available here:
-[https://s3.amazonaws.com/bcbio_nextgen/human_ancestor.fa.gz](https://s3.amazonaws.com/bcbio_nextgen/human_ancestor.fa.gz),
-[https://s3.amazonaws.com/bcbio_nextgen/human_ancestor.fa.gz.fai](https://s3.amazonaws.com/bcbio_nextgen/human_ancestor.fa.gz.fai),
-[https://s3.amazonaws.com/bcbio_nextgen/human_ancestor.fa.gz.gzi](https://s3.amazonaws.com/bcbio_nextgen/human_ancestor.fa.gz.gzi).
+Location of human\_ancestor.fa file (index file(s) must also be present). Courtesy of Javier Herrero and the 1000 Genomes Project
+([source](ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/phase1/analysis_results/supporting/ancestral_alignments/)).
+
 If this flag is set to 'false', the ancestral allele will not be checked and filtered.
+
+For samtools 1.x or Bio::DB::HTS::Faidx (installed with ensembl-vep), uses bgzipped inputs:
+
+**GRCh37:** [human_ancestor.fa.gz](https://personal.broadinstitute.org/konradk/loftee_data/GRCh37/human_ancestor.fa.gz) | [human_ancestor.fa.gz.fai](https://personal.broadinstitute.org/konradk/loftee_data/GRCh37/human_ancestor.fa.gz.fai) | [human_ancestor.fa.gz.gzi](https://personal.broadinstitute.org/konradk/loftee_data/GRCh37/human_ancestor.fa.gz.gzi)
+
+**GRCh38:** [human_ancestor.fa.gz](https://personal.broadinstitute.org/konradk/loftee_data/GRCh38/human_ancestor.fa.gz) | [human_ancestor.fa.gz.fai](https://personal.broadinstitute.org/konradk/loftee_data/GRCh38/human_ancestor.fa.gz.fai) | [human_ancestor.fa.gz.gzi](https://personal.broadinstitute.org/konradk/loftee_data/GRCh38/human_ancestor.fa.gz.gzi)
+
+For samtools 0.1.19 and older:
+
+**GRCh37:** [human\_ancestor.fa.rz](http://www.broadinstitute.org/~konradk/loftee/human_ancestor.fa.rz) | [human\_ancestor.fa.rz.fai](http://www.broadinstitute.org/~konradk/loftee/human_ancestor.fa.rz.fai)
+
+
+-   `gerp_file`
+
+Can be a tabix-indexed tab-delimited file or a BigWig file. To use a BigWig file, LOFTEE requires the Bio::EnsEMBL::IO package (installed with ensembl-vep) and Bio::DB::BigFile (see [instructions](https://www.ensembl.org/info/docs/tools/vep/script/vep_download.html#bigfile)).
+
+**GRCh37:** [GERP_scores.final.sorted.txt.gz](https://personal.broadinstitute.org/konradk/loftee_data/GRCh37/GERP_scores.final.sorted.txt.gz) | [GERP_scores.final.sorted.txt.gz.tbi](https://personal.broadinstitute.org/konradk/loftee_data/GRCh37/GERP_scores.final.sorted.txt.gz.tbi) (tabix files from broadinstitute.org)
+
+**GRCh38:** [gerp_conservation_scores.homo_sapiens.bw](http://ftp.ensemblorg.ebi.ac.uk/pub/release-94/compara/conservation_scores/70_mammals.gerp_conservation_score/gerp_conservation_scores.homo_sapiens.bw) (BigWig files from ensembl.org)
 
 -   `conservation_file`
 
-The required SQL database (gzip) can be downloaded [here](https://www.broadinstitute.org/~konradk/loftee/phylocsf.sql.gz).
+The required sqlite database can be downloaded here: [here](https://personal.broadinstitute.org/konradk/loftee_data/GRCh37/phylocsf_gerp.sql).
+
 Alternatively, this can be loaded into MySQL by downloading the source file [here](https://www.broadinstitute.org/~konradk/loftee/phylocsf_data.tsv.gz)
 and loaded into MySQL with the schema available [here](https://www.broadinstitute.org/~konradk/loftee/phylocsf_data_schema.sql).
 You will then need to create a \[loftee\] entry in your `~/.my.cnf` (creating one if it does not exist) that looks like:

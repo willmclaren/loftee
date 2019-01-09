@@ -74,9 +74,24 @@ sub new {
     $self->{filter_position} = 0.05 if !defined($self->{filter_position});
     $self->{min_intron_size} = 15 if !defined($self->{min_intron_size});
     $self->{fast_length_calculation} = 'fast' if !defined($self->{fast_length_calculation});
-    $self->{human_ancestor_fa} = 'human_ancestor.fa.rz' if !defined($self->{human_ancestor_fa});
+    $self->{human_ancestor_fa} = 'false' if !defined($self->{human_ancestor_fa});
     $self->{check_complete_cds} = 'false' if !defined($self->{check_complete_cds});
     $self->{use_gerp_end_trunc} = 0 if !defined($self->{check_complete_cds});
+
+    # check FASTA
+    if($self->{human_ancestor_fa} ne 'false') {
+        my $can_use_faidx = eval q{ require Bio::DB::HTS::Faidx; 1 };
+
+        if($self->{human_ancestor_fa} =~ /\.rz$/ || !$can_use_faidx) {
+            die("ERROR: samtools not found in path and Bio::DB::HTS::Faidx not installed\n") unless `which samtools 2>&1` =~ /samtools$/;
+        }
+        elsif($can_use_faidx) {
+            $self->{human_ancestor_fa} = Bio::DB::HTS::Faidx->new($self->{human_ancestor_fa});
+        }
+        else {
+            die("ERROR: samtools not found in path and Bio::DB::HTS::Faidx not installed\n");
+        }
+    }
     
     # general splice prediction parameters
     $self->{loftee_path} = '/vep/loftee/' if !defined($self->{loftee_path});
@@ -129,10 +144,34 @@ sub new {
     $self->{gerp_database} = 'false';
     $self->{gerp_file} = '/vep/loftee/GERP_scores.final.sorted.txt.gz' if !defined($self->{gerp_file});
     if (defined($self->{gerp_file})) {
-        if ($self->{gerp_file} eq 'mysql') {
+        if ($self->{gerp_file} eq 'mysql') { # mysql
             my $db_info = "DBI:mysql:mysql_read_default_group=loftee;mysql_read_default_file=~/.my.cnf";
             $self->{gerp_database} = DBI->connect($db_info, undef, undef) or die "Cannot connect to mysql using " . $db_info . "\n";
-        } else {
+        } elsif ($self->{gerp_file} =~ /\.bw$/) { # bigwig
+
+                # first check we can use the module
+                die("ERROR: Unable to import Bio::EnsEMBL::IO::Parser::BigWig module\n") unless eval q{ require Bio::EnsEMBL::IO::Parser::BigWig; 1 };
+
+                # hacky code for test opening of bigwig file
+                # copied from Bio::EnsEMBL::VEP::AnnotationSource::File::BigWig in ensembl-vep package
+                my $pid = fork();
+
+                # parent process, capture the return code and die nicely if it failed
+                if($pid) {
+                    if(waitpid($pid, 0) > 0) {
+                        my $rc = $? >> 8;
+                        die("ERROR: Failed to open ".$self->{gerp_file}."\n") if $rc > 0;
+                    }
+                }
+
+                # child process, attempt to open the file
+                else {
+                    my $test = Bio::EnsEMBL::IO::Parser::BigWig->open($self->{gerp_file});
+                    exit(0);
+                }
+
+                $self->{gerp_database} = Bio::EnsEMBL::IO::Parser::BigWig->open($self->{gerp_file});
+        } else { # tabix
             if (`$self->{tabix_path} -l $self->{gerp_file} 2>&1` =~ "fail") {
                 die "Cannot read " . $self->{gerp_file} . " using " . $self->{tabix_path};
             } else {
@@ -499,13 +538,21 @@ sub check_for_ancestral_allele {
     }
     
     my $aff_allele = $transcript_variation_allele->variation_feature_seq;
-    
-    # Get ancestral allele from human_ancestor.fa.rz
+
+    my $ancestral_allele;
     my $region = $variation_feature->seq_region_name() . ":" . $variation_feature->seq_region_start() . '-' . $variation_feature->seq_region_end();
-    my $faidx = `samtools faidx $human_ancestor_location $region`;
-    my @lines = split(/\n/, $faidx);
-    shift @lines;
-    my $ancestral_allele = uc(join('', @lines));
+
+    if(ref($human_ancestor_location) eq 'Bio::DB::HTS::Faidx') {
+        my ($seq, $length) = $human_ancestor_location->get_sequence($region);
+        $ancestral_allele = uc($seq);
+    }
+    else {
+        # Get ancestral allele from human_ancestor.fa.rz
+        my $faidx = `samtools faidx $human_ancestor_location $region`;
+        my @lines = split(/\n/, $faidx);
+        shift @lines;
+        $ancestral_allele = uc(join('', @lines));
+    }
     
     return ($ancestral_allele eq $aff_allele)
 }

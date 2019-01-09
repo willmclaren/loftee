@@ -1,5 +1,10 @@
 use strict;
 
+sub overlap {
+    my ($a, $b, $x, $y) = @_;
+    return $a <= $y && $b >= $x;
+}
+
 sub get_gerp_weighted_dist {
     my ($tr, $pos, $gerp_db, $cons_db) = @_[0..3];
 
@@ -69,11 +74,32 @@ sub get_gerp_weighted_dist {
 
 sub get_interval_gerp {
     my ($chrom, $a, $b, $gerp_db) = @_[0..3];
-    if ($gerp_db =~ 'tabix') {
+    if(ref($gerp_db) eq 'Bio::EnsEMBL::IO::Parser::BigWig') {
+        return (get_interval_gerp_bigwig($chrom, $a, $b, $gerp_db));
+    } elsif ($gerp_db =~ 'tabix') {
         return (get_interval_gerp_tabix($chrom, $a, $b, $gerp_db));
     } else {
         return (get_interval_gerp_db($chrom, $a, $b, $gerp_db));
     }
+}
+
+sub get_interval_gerp_bigwig {
+    my ($chrom, $a, $b, $gerp_db) = @_[0..3];
+    if ($a > $b) { my $tmp = $a; $a = $b; $b = $tmp; }
+
+    if ($gerp_db->seek($chrom, $a - 1, $b + 1)) {
+        $gerp_db->next();
+    }
+
+    my $gerp = 0;
+    while($gerp_db->{record} && $gerp_db->get_end <= $b) {
+        if(overlap($gerp_db->get_end, $gerp_db->get_end, $a, $b)) {
+            $gerp += $gerp_db->get_raw_score();
+        }
+        $gerp_db->next();
+    }
+
+    return ($gerp);
 }
 
 sub get_interval_gerp_db {
@@ -100,7 +126,9 @@ sub get_interval_gerp_tabix {
 
 sub get_bp_gerp {
     my ($chrom, $pos, $gerp_db) = @_[0..3];
-    if ($gerp_db =~ 'tabix') {
+    if(ref($gerp_db) eq 'Bio::EnsEMBL::IO::Parser::BigWig') {
+        return (get_interval_gerp_bigwig($chrom, $pos, $pos, $gerp_db));
+    } elsif ($gerp_db =~ 'tabix') {
         return (get_bp_gerp_tabix($chrom, $pos, $gerp_db));
     } else {
         return (get_bp_gerp_db($chrom, $pos, $gerp_db));
