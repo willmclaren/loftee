@@ -302,28 +302,29 @@ sub run {
         }
     }
 
-    # filter LoF variants occurring near the reference stop codon
-    if ($tv->cds_end) {
-        my $lof_percentile = get_position($tv);
-        # push(@filters, 'END_TRUNC') if ($lof_percentile >= 1-$self->{filter_position});
-
-        # using distance from stop codon weighted by GERP
-        my $slice = $vf->feature_Slice();
-        $lof_position = $slice->start if $lof_position < 0;
-        my ($gerp_dist, $dist) = get_gerp_weighted_dist($tv, $lof_position, $self->{gerp_database}, $self->{conservation_database});
-        push(@info, 'GERP_DIST:' . $gerp_dist);
-        push(@info, 'BP_DIST:' . $dist);
-        push(@info, 'PERCENTILE:' . $lof_percentile);
-
-        my $last_exon_length = get_last_exon_coding_length($tv);
-        my $d = $dist - $last_exon_length;
-        push(@info, 'DIST_FROM_LAST_EXON:' . $d);
-        push(@info, '50_BP_RULE:' . ($d <= 50 ? 'FAIL' : 'PASS'));
-        push(@filters, 'END_TRUNC') if ($d <= 50) & ($gerp_dist <= 180);
-    }
-
-    # Filter out - exonic
     if ($tv->exon_number) {
+        
+        # filter LoF variants occurring near the reference stop codon
+        if ($tv->cds_end) {
+            my $lof_percentile = get_position($tv);
+            # push(@filters, 'END_TRUNC') if ($lof_percentile >= 1-$self->{filter_position});
+
+            # using distance from stop codon weighted by GERP
+            my $slice = $vf->feature_Slice();
+            $lof_position = $slice->start if $lof_position < 0;
+            my ($gerp_dist, $dist) = get_gerp_weighted_dist($tv, $lof_position, $self->{gerp_database}, $self->{conservation_database});
+            push(@info, 'GERP_DIST:' . $gerp_dist);
+            push(@info, 'BP_DIST:' . $dist);
+            push(@info, 'PERCENTILE:' . $lof_percentile);
+
+            my $last_exon_length = get_last_exon_coding_length($tv);
+            my $d = $dist - $last_exon_length;
+            push(@info, 'DIST_FROM_LAST_EXON:' . $d);
+            push(@info, '50_BP_RULE:' . ($d <= 50 ? 'FAIL' : 'PASS'));
+            push(@filters, 'END_TRUNC') if ($d <= 50) & ($gerp_dist <= 180);
+        }
+
+        # Filter out - exonic
         if (check_for_exon_annotation_errors($tv)) {
             push(@filters, 'EXON_INTRON_UNDEF');
         } elsif (check_for_single_exon($tv)) {
@@ -578,6 +579,7 @@ sub check_for_conservation {
 
 sub get_last_exon_coding_length {
     my $transcript_variation = shift;
+
     my ($exon_idx, $number_of_exons) = split /\//, ($transcript_variation->exon_number);
     $exon_idx--;
     my $exons = $transcript_variation->_exons;
