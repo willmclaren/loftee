@@ -158,7 +158,7 @@ sub check_for_denovo_donor {
         my $consensus = substr $var_seq, $best_junc - 3, 9;
 
         # determine reading frame 
-        my $cds_dist = get_cds_dist_to_exon($tr, $number - 1);
+        my $cds_dist = get_cds_dist_to_exon($tv, $number - 1);
         my $leading_frame = (3 - ($cds_dist % 3)) % 3; # Number of bases to complete the final codon of the previous exon
         my $tailing_frame = ($exon_length - $leading_frame) % 3; # Number of bases to begin the first codon of the next exon
         

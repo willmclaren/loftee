@@ -152,7 +152,7 @@ sub check_if_extended_splice_variant {
 sub get_cds_dist_to_exon {
     my ($tv, $exon_idx) = @_[0..1];
     my $tr = $tv->transcript;
-    my $exons = $tr->_exons;
+    my $exons = $tv->_exons;
     my $strand = $tr->strand();
     my $cds_start = ($strand == 1) ? $tr->{coding_region_start} : $tr->{coding_region_end};
 

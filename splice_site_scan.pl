@@ -86,7 +86,7 @@ sub scan_for_alternative_splice_sites {
     }
 
     # find best respective rescue / cryptic sites
-    my @sites = scan_for_splice_sites($tr, $var, \%info, $exon_delta, $cache);
+    my @sites = scan_for_splice_sites($tv, $var, \%info, $exon_delta, $cache);
     my %features = (
         "CRYPTIC_" . $type . "_POS" => undef,
         "CRYPTIC_" . $type . "_MES" => undef,
@@ -124,17 +124,18 @@ sub scan_for_alternative_splice_sites {
 }
 
 sub scan_for_splice_sites {
-    my ($tr, $seq, $info, $exon_delta, $cache) = @_[0..4];
+    my ($tv, $seq, $info, $exon_delta, $cache) = @_[0..4];
     # initialize some variables
+    my $tr = $tv->transcript;
     my %info = % { $info };
     my $donor = $info->{type} eq "DONOR";
     my $exon_idx = $info->{exon_idx};
-    my $exons = $tr->_exons;
+    my $exons = $tv->_exons;
     my $exon = $exons->[$exon_idx];
     my $exon_length = $exon->end - $exon->start + 1;
 
     # need these for determining if splice site introduces stop codon
-    my $cds_dist = get_cds_dist_to_exon($tr, $exon_idx);
+    my $cds_dist = get_cds_dist_to_exon($tv, $exon_idx);
     my $leading_frame = (3 - ($cds_dist % 3)) % 3; # Number of bases to complete the final codon of the previous exon
     if ($donor) {
         my $tailing_frame = ($exon_length - $leading_frame) % 3; # Number of bases to begin the first codon of the next exon
