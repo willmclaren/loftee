@@ -72,7 +72,8 @@ sub new {
         }
     }
     # general LOFTEE parameters
-    $self->{loftee_path} = (fileparse($INC{'LoF.pm'}))[1];
+    $self->{loftee_path} = (fileparse($INC{'LoF.pm'}))[1] if!defined($self->{loftee_path});
+    $self->{data_path} = catdir($self->{loftee_path}, 'data') if !defined($self->{data_path});
     $self->{filter_position} = 0.05 if !defined($self->{filter_position});
     $self->{min_intron_size} = 15 if !defined($self->{min_intron_size});
     $self->{check_complete_cds} = 'false' if !defined($self->{check_complete_cds});
@@ -80,7 +81,7 @@ sub new {
 
     # check FASTA
     if(!defined($self->{human_ancestor_fa})) {
-        $self->{human_ancestor_fa} = find_data_file($self->{loftee_path}, ['human_ancestor.fa.gz', 'human_ancestor.fa.rz']);
+        $self->{human_ancestor_fa} = find_data_file($self->{data_path}, ['human_ancestor.fa.gz', 'human_ancestor.fa.rz']);
     }
     if($self->{human_ancestor_fa} ne 'false') {
         my $can_use_faidx = eval q{ require Bio::DB::HTS::Faidx; 1 };
@@ -132,7 +133,7 @@ sub new {
 
     # parameters for PHYLOCSF-based filters
     if(!defined($self->{conservation_file})) {
-        $self->{conservation_file} = find_data_file($self->{loftee_path}, ['phylocsf_gerp.sql', 'phylocsf.sql']);
+        $self->{conservation_file} = find_data_file($self->{data_path}, ['phylocsf_gerp.sql', 'phylocsf.sql']);
     }
 
     $self->{conservation_database} = 'false';
@@ -147,7 +148,7 @@ sub new {
     
     # parameters for GERP-based filters
     if(!defined($self->{gerp_file})) {
-        $self->{gerp_file} = find_data_file($self->{loftee_path}, ['GERP_scores.final.sorted.txt.gz', 'gerp_conservation_scores.homo_sapiens.bw']);
+        $self->{gerp_file} = find_data_file($self->{data_path}, ['GERP_scores.final.sorted.txt.gz', 'gerp_conservation_scores.homo_sapiens.bw']);
     }    
 
     $self->{tabix_path} = 'tabix' if !defined($self->{tabix_path});
@@ -303,7 +304,7 @@ sub run {
     }
 
     if ($tv->exon_number) {
-        
+
         # filter LoF variants occurring near the reference stop codon
         if ($tv->cds_end) {
             my $lof_percentile = get_position($tv);

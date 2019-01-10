@@ -77,7 +77,17 @@ Options, given as comma-separated key=value pairs:
 
 -   `loftee_path`
 
-Path to loftee directory. Default is the current working directory. **Note: Your PERL5LIB should also contain this path.**
+Path to loftee directory. Default is the directory containing the `LoF.pm` perl module file. **Note: Your PERL5LIB should also contain this path.**
+
+-  `data_path`
+
+Path to data directory. Defaults to `[loftee_path]/data`. LOFTEE will attempt to locate the following files in `data_path`. If for each parameter a file is present, you do not need to specify the given parameter in addition.
+
+**human_ancestor_fa**: `human_ancestor.fa.gz` or `human_ancestor.fa.rz`
+
+**gerp_file**: `GERP_scores.final.sorted.txt.gz` or `gerp_conservation_scores.homo_sapiens.bw`
+
+**conservation_file**: `phylocsf_gerp.sql` or `phylocsf.sql`
 
 -   `filter_position`
 
