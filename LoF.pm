@@ -72,13 +72,16 @@ sub new {
         }
     }
     # general LOFTEE parameters
+    $self->{loftee_path} = (fileparse($INC{'LoF.pm'}))[1];
     $self->{filter_position} = 0.05 if !defined($self->{filter_position});
     $self->{min_intron_size} = 15 if !defined($self->{min_intron_size});
-    $self->{human_ancestor_fa} = 'false' if !defined($self->{human_ancestor_fa});
     $self->{check_complete_cds} = 'false' if !defined($self->{check_complete_cds});
     $self->{use_gerp_end_trunc} = 0 if !defined($self->{check_complete_cds});
 
     # check FASTA
+    if(!defined($self->{human_ancestor_fa})) {
+        $self->{human_ancestor_fa} = find_data_file($self->{loftee_path}, ['human_ancestor.fa.gz', 'human_ancestor.fa.rz']);
+    }
     if($self->{human_ancestor_fa} ne 'false') {
         my $can_use_faidx = eval q{ require Bio::DB::HTS::Faidx; 1 };
 
@@ -94,7 +97,6 @@ sub new {
     }
     
     # general splice prediction parameters
-    $self->{loftee_path} = (fileparse($INC{'LoF.pm'}))[1];
     $self->{get_splice_features} = 1 if !defined($self->{get_splice_features});
     $self->{weak_donor_cutoff} = -4 if !defined($self->{weak_donor_cutoff}); # used for filtering potenital de novo splice events: if the reference site falls below this threshold, skip it
     $self->{donor_motifs} = get_motif_info(catdir($self->{loftee_path}, 'splice_data/donor_motifs')); # returns a hash reference
@@ -129,9 +131,12 @@ sub new {
     $self->{donor_svm} = get_svm_info(catdir($self->{loftee_path}, 'splice_data/de_novo_donor_SVM')); # returns a hash reference
 
     # parameters for PHYLOCSF-based filters
-    $self->{conservation_file} = 'false' if !defined($self->{conservation_file});
+    if(!defined($self->{conservation_file})) {
+        $self->{conservation_file} = find_data_file($self->{loftee_path}, ['phylocsf_gerp.sql', 'phylocsf.sql']);
+    }
+
     $self->{conservation_database} = 'false';
-    if ($self->{conservation_file} ne 'false') {
+    if($self->{conservation_file} ne 'false') {
         if ($self->{conservation_file} eq 'mysql') {
             my $db_info = "DBI:mysql:mysql_read_default_group=loftee;mysql_read_default_file=~/.my.cnf";
             $self->{conservation_database} = DBI->connect($db_info, undef, undef) or die "Cannot connect to mysql using " . $db_info . "\n";
@@ -139,44 +144,48 @@ sub new {
             $self->{conservation_database} = DBI->connect("dbi:SQLite:dbname=" . $self->{conservation_file}, "", "") or die "Cannot connect to " . $self->{conservation_file} . "\n";
         }
     }
+    
     # parameters for GERP-based filters
+    if(!defined($self->{gerp_file})) {
+        $self->{gerp_file} = find_data_file($self->{loftee_path}, ['GERP_scores.final.sorted.txt.gz', 'gerp_conservation_scores.homo_sapiens.bw']);
+    }    
+
     $self->{tabix_path} = 'tabix' if !defined($self->{tabix_path});
     $self->{gerp_database} = 'false';
-    $self->{gerp_file} = catdir($self->{loftee_path}, 'GERP_scores.final.sorted.txt.gz') if !defined($self->{gerp_file});
-    if (defined($self->{gerp_file})) {
-        if ($self->{gerp_file} eq 'mysql') { # mysql
-            my $db_info = "DBI:mysql:mysql_read_default_group=loftee;mysql_read_default_file=~/.my.cnf";
-            $self->{gerp_database} = DBI->connect($db_info, undef, undef) or die "Cannot connect to mysql using " . $db_info . "\n";
-        } elsif ($self->{gerp_file} =~ /\.bw$/) { # bigwig
+    if ($self->{gerp_file} eq 'false') {
+        die("ERROR: gerp_file required\n");
+    } elsif ($self->{gerp_file} eq 'mysql') { # mysql
+        my $db_info = "DBI:mysql:mysql_read_default_group=loftee;mysql_read_default_file=~/.my.cnf";
+        $self->{gerp_database} = DBI->connect($db_info, undef, undef) or die "Cannot connect to mysql using " . $db_info . "\n";
+    } elsif ($self->{gerp_file} =~ /\.bw$/) { # bigwig
 
-            # first check we can use the module
-            die("ERROR: Unable to import Bio::EnsEMBL::IO::Parser::BigWig module\n") unless eval q{ require Bio::EnsEMBL::IO::Parser::BigWig; 1 };
+        # first check we can use the module
+        die("ERROR: Unable to import Bio::EnsEMBL::IO::Parser::BigWig module\n") unless eval q{ require Bio::EnsEMBL::IO::Parser::BigWig; 1 };
 
-            # hacky code for test opening of bigwig file
-            # copied from Bio::EnsEMBL::VEP::AnnotationSource::File::BigWig in ensembl-vep package
-            my $pid = fork();
+        # hacky code for test opening of bigwig file
+        # copied from Bio::EnsEMBL::VEP::AnnotationSource::File::BigWig in ensembl-vep package
+        my $pid = fork();
 
-            # parent process, capture the return code and die nicely if it failed
-            if($pid) {
-                if(waitpid($pid, 0) > 0) {
-                    my $rc = $? >> 8;
-                    die("ERROR: Failed to open ".$self->{gerp_file}."\n") if $rc > 0;
-                }
+        # parent process, capture the return code and die nicely if it failed
+        if($pid) {
+            if(waitpid($pid, 0) > 0) {
+                my $rc = $? >> 8;
+                die("ERROR: Failed to open ".$self->{gerp_file}."\n") if $rc > 0;
             }
+        }
 
-            # child process, attempt to open the file
-            else {
-                my $test = Bio::EnsEMBL::IO::Parser::BigWig->open($self->{gerp_file});
-                exit(0);
-            }
+        # child process, attempt to open the file
+        else {
+            my $test = Bio::EnsEMBL::IO::Parser::BigWig->open($self->{gerp_file});
+            exit(0);
+        }
 
-            $self->{gerp_database} = Bio::EnsEMBL::IO::Parser::BigWig->open($self->{gerp_file});
-        } else { # tabix
-            if (`$self->{tabix_path} -l $self->{gerp_file} 2>&1` =~ "fail") {
-                die "Cannot read " . $self->{gerp_file} . " using " . $self->{tabix_path};
-            } else {
-                $self->{gerp_database} = $self->{tabix_path} . " " . $self->{gerp_file};
-            }
+        $self->{gerp_database} = Bio::EnsEMBL::IO::Parser::BigWig->open($self->{gerp_file});
+    } else { # tabix
+        if (`$self->{tabix_path} -l $self->{gerp_file} 2>&1` =~ "fail") {
+            die "Cannot read " . $self->{gerp_file} . " using " . $self->{tabix_path};
+        } else {
+            $self->{gerp_database} = $self->{tabix_path} . " " . $self->{gerp_file};
         }
     }
     $self->{apply_all} = $self->{apply_all} || 'false';
@@ -190,6 +199,21 @@ sub new {
     }
     
     return $self;
+}
+
+sub find_data_file {
+    my ($dir, $possibles) = @_;
+
+    my $file;
+    foreach my $poss(@$possibles) {
+        my $tmp = catdir($dir, $poss);
+        if(-e $tmp) {
+            $file = $tmp;
+            last;
+        }
+    }
+
+    return $file || 'false';
 }
 
 sub run {
