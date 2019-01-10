@@ -73,7 +73,6 @@ sub new {
     # general LOFTEE parameters
     $self->{filter_position} = 0.05 if !defined($self->{filter_position});
     $self->{min_intron_size} = 15 if !defined($self->{min_intron_size});
-    $self->{fast_length_calculation} = 'fast' if !defined($self->{fast_length_calculation});
     $self->{human_ancestor_fa} = 'false' if !defined($self->{human_ancestor_fa});
     $self->{check_complete_cds} = 'false' if !defined($self->{check_complete_cds});
     $self->{use_gerp_end_trunc} = 0 if !defined($self->{check_complete_cds});
@@ -149,28 +148,28 @@ sub new {
             $self->{gerp_database} = DBI->connect($db_info, undef, undef) or die "Cannot connect to mysql using " . $db_info . "\n";
         } elsif ($self->{gerp_file} =~ /\.bw$/) { # bigwig
 
-                # first check we can use the module
-                die("ERROR: Unable to import Bio::EnsEMBL::IO::Parser::BigWig module\n") unless eval q{ require Bio::EnsEMBL::IO::Parser::BigWig; 1 };
+            # first check we can use the module
+            die("ERROR: Unable to import Bio::EnsEMBL::IO::Parser::BigWig module\n") unless eval q{ require Bio::EnsEMBL::IO::Parser::BigWig; 1 };
 
-                # hacky code for test opening of bigwig file
-                # copied from Bio::EnsEMBL::VEP::AnnotationSource::File::BigWig in ensembl-vep package
-                my $pid = fork();
+            # hacky code for test opening of bigwig file
+            # copied from Bio::EnsEMBL::VEP::AnnotationSource::File::BigWig in ensembl-vep package
+            my $pid = fork();
 
-                # parent process, capture the return code and die nicely if it failed
-                if($pid) {
-                    if(waitpid($pid, 0) > 0) {
-                        my $rc = $? >> 8;
-                        die("ERROR: Failed to open ".$self->{gerp_file}."\n") if $rc > 0;
-                    }
+            # parent process, capture the return code and die nicely if it failed
+            if($pid) {
+                if(waitpid($pid, 0) > 0) {
+                    my $rc = $? >> 8;
+                    die("ERROR: Failed to open ".$self->{gerp_file}."\n") if $rc > 0;
                 }
+            }
 
-                # child process, attempt to open the file
-                else {
-                    my $test = Bio::EnsEMBL::IO::Parser::BigWig->open($self->{gerp_file});
-                    exit(0);
-                }
+            # child process, attempt to open the file
+            else {
+                my $test = Bio::EnsEMBL::IO::Parser::BigWig->open($self->{gerp_file});
+                exit(0);
+            }
 
-                $self->{gerp_database} = Bio::EnsEMBL::IO::Parser::BigWig->open($self->{gerp_file});
+            $self->{gerp_database} = Bio::EnsEMBL::IO::Parser::BigWig->open($self->{gerp_file});
         } else { # tabix
             if (`$self->{tabix_path} -l $self->{gerp_file} 2>&1` =~ "fail") {
                 die "Cannot read " . $self->{gerp_file} . " using " . $self->{tabix_path};
@@ -280,13 +279,13 @@ sub run {
 
     # filter LoF variants occurring near the reference stop codon
     if ($tv->cds_end) {
-        my $lof_percentile = get_position($tv, $self->{fast_length_calculation});
+        my $lof_percentile = get_position($tv);
         # push(@filters, 'END_TRUNC') if ($lof_percentile >= 1-$self->{filter_position});
 
         # using distance from stop codon weighted by GERP
         my $slice = $vf->feature_Slice();
         $lof_position = $slice->start if $lof_position < 0;
-        my ($gerp_dist, $dist) = get_gerp_weighted_dist($tv->transcript, $lof_position, $self->{gerp_database}, $self->{conservation_database});
+        my ($gerp_dist, $dist) = get_gerp_weighted_dist($tv, $lof_position, $self->{gerp_database}, $self->{conservation_database});
         push(@info, 'GERP_DIST:' . $gerp_dist);
         push(@info, 'BP_DIST:' . $dist);
         push(@info, 'PERCENTILE:' . $lof_percentile);
@@ -367,22 +366,21 @@ sub DESTROY {
 # Global functions
 
 sub small_intron {
-    my $transcript_variation = shift;
+    my $tv = shift;
     my $intron_number = shift;
     my $min_intron_size = shift;
-    my @gene_introns = @{$transcript_variation->transcript->get_all_Introns()};   
-    return ($gene_introns[$intron_number]->length < $min_intron_size);
+    return ($tv->_introns->[$intron_number]->length < $min_intron_size);
 }
 
 sub intron_motif_start {
-    my ($transcript_variation, $intron_number) = @_;
+    my ($tv, $intron_number) = @_;
     
-    my $transcript = $transcript_variation->transcript;
-    my @gene_introns = @{$transcript->get_all_Introns()};
+    my $transcript = $tv->transcript;
+    my $gene_introns = $tv->_introns;
     
     # Cache intron sequence
     unless (exists($transcript->{intron_cache}->{$intron_number})) {
-        $transcript->{intron_cache}->{$intron_number} = $gene_introns[$intron_number]->seq;
+        $transcript->{intron_cache}->{$intron_number} = $gene_introns->[$intron_number]->seq;
     }
     my $sequence = $transcript->{intron_cache}->{$intron_number};
     
@@ -392,36 +390,23 @@ sub intron_motif_start {
 }
 
 sub intron_motif_end {
-    my ($transcript_variation, $intron_number) = @_;
+    my ($tv, $intron_number) = @_;
     
-    my $transcript = $transcript_variation->transcript;
-    my @gene_introns = @{$transcript->get_all_Introns()};
+    my $transcript = $tv->transcript;
+    my $gene_introns = $tv->_introns;
     
     # Cache intron sequence
     unless (exists($transcript->{intron_cache}->{$intron_number})) {
-        $transcript->{intron_cache}->{$intron_number} = $gene_introns[$intron_number]->seq;
+        $transcript->{intron_cache}->{$intron_number} = $gene_introns->[$intron_number]->seq;
     }
     my $sequence = $transcript->{intron_cache}->{$intron_number};
     
     return (substr($sequence, length($sequence) - 2, 2) ne 'AG')
 }
 
-sub get_cds_length_fast {
-    my $transcript = shift;
-    
-    my $transcript_cds_length = $transcript->cdna_coding_end - $transcript->cdna_coding_start + 1;
-    return $transcript_cds_length;
-}
-
 sub get_cds_length {
-    my $transcript = shift;
-    
-    # Cache CDS sequence
-    unless (exists($transcript->{cds_seq_cache})) {
-        $transcript->{cds_seq_cache} = $transcript->translateable_seq;
-    }
-    my $transcript_cds_length = length($transcript->{cds_seq_cache});
-    return $transcript_cds_length;
+    my $tv = shift;
+    return length($tv->_translateable_seq);
 }
 
 # Stop-gain and frameshift annotations
@@ -444,13 +429,7 @@ sub get_position {
     my $transcript_variation = shift;
     my $speed = shift;
     
-    # 2 ways to get length: fast and approximate, or slow and accurate
-    my $transcript_cds_length;
-    if ($speed eq 'fast') {
-        $transcript_cds_length = get_cds_length_fast($transcript_variation->transcript);
-    } else {
-        $transcript_cds_length = get_cds_length($transcript_variation->transcript);
-    }
+    my $transcript_cds_length = get_cds_length($transcript_variation);
     my $variant_cds_position = $transcript_variation->cds_end;
     
     return $variant_cds_position/$transcript_cds_length;
@@ -512,12 +491,11 @@ sub check_for_intron_annotation_errors {
 }
 
 sub get_intron_size {
-    my $transcript_variation = shift;
-    my ($intron_number, $total_introns) = split /\//, ($transcript_variation->intron_number);
+    my $tv = shift;
+    my ($intron_number, $total_introns) = split /\//, ($tv->intron_number);
     $intron_number--;
-    my @gene_introns = @{$transcript_variation->transcript->get_all_Introns()};
 
-    return ($gene_introns[$intron_number]->length);
+    return ($tv->_introns->[$intron_number]->length);
 }
 
 sub check_for_non_canonical_intron_motif {
@@ -577,7 +555,7 @@ sub get_last_exon_coding_length {
     my $transcript_variation = shift;
     my ($exon_idx, $number_of_exons) = split /\//, ($transcript_variation->exon_number);
     $exon_idx--;
-    my @exons = @{ $transcript_variation->transcript->get_all_Exons };
+    my $exons = $transcript_variation->_exons;
 
     my $strand = $transcript_variation->transcript->strand();
     my $stop_codon_pos = 0;
@@ -589,7 +567,7 @@ sub get_last_exon_coding_length {
     # locate last exon in CDS, get the length of its coding portion
     my $last_exon_len = -1000;
     for (my $i=$number_of_exons - 1; $i >= $exon_idx; $i--) {
-        my $current_exon = $exons[$i];
+        my $current_exon = $exons->[$i];
         if ($strand == 1) {
             if ($current_exon->{start} > $stop_codon_pos) {
                 next;

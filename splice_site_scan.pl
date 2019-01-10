@@ -14,10 +14,10 @@ sub scan_for_alternative_splice_sites {
     # transcript info
     my $tr = $tv->transcript;
     my $ensembl_id = $tr->stable_id;
-    my @exons = @{ $tr->get_all_Exons };
-    my @introns = @{ $tr->get_all_Introns };
-    my $exon = $exons[$info->{exon_idx}];
-    my $intron = $introns[$info->{intron_idx}];
+    my $exons = $tv->_exons;
+    my $introns = $tv->_introns;
+    my $exon = $exons->[$info->{exon_idx}];
+    my $intron = $introns->[$info->{intron_idx}];
     my $strand = $tr->strand();
     
     # mutation info
@@ -129,8 +129,8 @@ sub scan_for_splice_sites {
     my %info = % { $info };
     my $donor = $info->{type} eq "DONOR";
     my $exon_idx = $info->{exon_idx};
-    my @exons = @{ $tr->get_all_Exons };
-    my $exon = $exons[$exon_idx];
+    my $exons = $tr->_exons;
+    my $exon = $exons->[$exon_idx];
     my $exon_length = $exon->end - $exon->start + 1;
 
     # need these for determining if splice site introduces stop codon
@@ -138,12 +138,12 @@ sub scan_for_splice_sites {
     my $leading_frame = (3 - ($cds_dist % 3)) % 3; # Number of bases to complete the final codon of the previous exon
     if ($donor) {
         my $tailing_frame = ($exon_length - $leading_frame) % 3; # Number of bases to begin the first codon of the next exon
-        my $next_exon = $exons[$exon_idx + 1];
+        my $next_exon = $exons->[$exon_idx + 1];
         my $next_exon_seq = $next_exon->seq->seq;
         my $codon_completion = substr $next_exon_seq, 0, 3 - $tailing_frame;
         return scan_for_donors($seq, $codon_completion, $exon_length, $exon_delta, $cache);
     } else {
-        my $previous_exon = $exons[$exon_idx - 1];
+        my $previous_exon = $exons->[$exon_idx - 1];
         my $prev_exon_seq = $previous_exon->seq->seq;
         my $codon_completion = substr $prev_exon_seq, -(3 - $leading_frame); 
         return scan_for_acceptors($seq, $codon_completion, $exon_length, $exon_delta, $cache);

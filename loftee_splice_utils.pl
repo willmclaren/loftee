@@ -21,9 +21,7 @@ sub mes_donor {
   my $cache = shift;
   my $str = shift;
   #print "$str\n";
-  my %me2x5 = % { $cache->{me2x5} };
-  my %seq = % { $cache->{seq} };
-  return &log2(&score_consensus_donor($str)*$me2x5{$seq{&get_rest_donor($str)}});
+  return &log2(&score_consensus_donor($str)*$cache->{me2x5}->{$cache->{seq}->{&get_rest_donor($str)}});
 }
 
 
@@ -112,10 +110,11 @@ sub check_extended_splice_junctions_for_exon {
 
 
 sub check_extended_splice_junctions_for_all_introns {
-    my ($tr, $slice, $get_idx) = @_[0..2];
+    my ($tv, $slice, $get_idx) = @_[0..2];
+    my $tr = $tv->transcript;
     my $strand = $tr->strand();
     my $i = 0;
-    foreach my $intron(@{$tr->get_all_Introns}) {
+    foreach my $intron(@{$tv->_introns}) {
         my ($ss, $start, $end) = check_extended_splice_junctions_for_intron($intron, $slice, $strand);
         if ($ss != 0) {
             return ($get_idx) ? $i : ($intron, $i, $ss, $start, $end);
@@ -131,35 +130,36 @@ sub check_if_extended_splice_variant {
     my $tr = $tv->transcript;
     my $strand = $tr->strand();
     if ($tv->intron_number) {
-        my @introns = @{ $tr->get_all_Introns };
+        my $introns = $tv->_introns;
         my ($intron_num, $number_of_introns) = split /\//, ($tv->intron_number);
-        my $intron = $introns[$intron_num - 1];
+        my $intron = $introns->[$intron_num - 1];
         my ($ss, $start, $end) = check_extended_splice_junctions_for_intron($intron, $slice, $strand);
         return ($intron, $intron_num - 1, $ss, $start, $end);
     } elsif ($tv->exon_number) {
-        my @exons = @{ $tr->get_all_Exons };
+        my $exons = $tv->_exons;
         my ($exon_num, $number_of_exons) = split /\//, ($tv->exon_number);
-        my $exon = $exons[$exon_num - 1];
+        my $exon = $exons->[$exon_num - 1];
         my @results = check_extended_splice_junctions_for_exon($exon, $slice, $strand, $exon_num, $number_of_exons);
         my ($ss, $start, $end) = @results;
         my $intron_idx = ($ss == 5) ? $exon_num - 1 : $exon_num - 2;
-        my @introns = @{ $tr->get_all_Introns };
-        return ($introns[$intron_idx], $intron_idx, $ss, $start, $end);
+        my $introns = $tv->_introns;
+        return ($introns->[$intron_idx], $intron_idx, $ss, $start, $end);
     } else {
-        return check_extended_splice_junctions_for_all_introns($tr, $slice, 0);
+        return check_extended_splice_junctions_for_all_introns($tv, $slice, 0);
     }
 }
 
 sub get_cds_dist_to_exon {
-    my ($tr, $exon_idx) = @_[0..1];
-    my @exons = @{ $tr->get_all_Exons };
+    my ($tv, $exon_idx) = @_[0..1];
+    my $tr = $tv->transcript;
+    my $exons = $tr->_exons;
     my $strand = $tr->strand();
     my $cds_start = ($strand == 1) ? $tr->{coding_region_start} : $tr->{coding_region_end};
 
     # determine length of CDS sequence up to the given exon
     my $dist_from_cds_start = 0;
     for (my $i=0; $i < $exon_idx; $i++) {
-        my $ex = $exons[$i]; # current exon
+        my $ex = $exons->[$i]; # current exon
         if ($strand == 1) {
             if ($cds_start > $ex->{end}) {
                 next;
@@ -183,10 +183,8 @@ sub get_cds_dist_to_exon {
 
 sub scan_seq {
     my ($motifcacheref, $seq, $motif_type) = @_[0..2];
-    my %motifcache = % { $motifcacheref };
-    my @motifs = @ { $motifcache{$motif_type} };
-    my %motif_hash = map { $_ => 1 } @motifs;
-    my $l = scalar @motifs;
+    my %motif_hash = map { $_ => 1 } @ { $motifcacheref->{$motif_type} };
+    my $l = scalar keys %motif_hash;
     my $n = length($seq);
     my $hits = 0;
     for (my $i=0; $i < $n; $i++) {

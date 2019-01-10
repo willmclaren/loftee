@@ -51,11 +51,12 @@ LOFTEE also uses an SVM model to predict variants that cause LoF by creating de 
 
 ## Requirements
 
--   VEP
+-   VEP (works with old ensembl-tools VEP <=87 and new ensembl-vep >=87)
 -   >= Perl 5.10.1
 -   Ancestral sequence (human\_ancestor.fa[.rz])
--   Samtools (must be on path)
+-   Bio::DB::HTS::Faidx or samtools (must be on path)
 -   PhyloCSF database (phylocsf.sql) for conservation filters
+-   Perl modules: List::MoreUtils, experimental, DBD::SQLite
 
 ## Usage
 
@@ -85,10 +86,6 @@ Position in transcript where a variant should be filtered. Default is 0.05, corr
 -   `min_intron_size`
 
 Minimum intron size, below which a variant should be filtered.
-
--   `fast_length_calculation`
-
-The Ensembl API can be used to calculate transcript length in two different methods: one approximate (fast; usually within 3 bp of correct length) and one perfect (slow). Default: fast.
 
 -   `human_ancestor_fa`
 

@@ -37,8 +37,7 @@ sub get_effect_on_splice {
 
     # get implicated exon
     my $tr = $tv->transcript;
-    my @exons = @{ $tr->get_all_Exons };
-    my $exon = $exons[$info{exon_idx}];
+    my $exon = $tv->_exons->[$info{exon_idx}];
 
     # always scan for alternatives in case of indels affecting the essential splice site 
     my $indel = $allele =~ "-";

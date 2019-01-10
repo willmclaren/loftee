@@ -15,8 +15,8 @@ sub check_for_denovo_donor {
     return @null if $alt eq '*'; 
 
     # determine if valid candidate
-    my @introns = @{ $tr->get_all_Introns };
-    my @exons = @{ $tr->get_all_Exons };
+    my $introns = $tv->_introns;
+    my $exons = $tv->_exons;
     my $number = 0;
     if ($tv->exon_number) {
         ($number, my $number_of_exons) = split /\//, ($tv->exon_number);
@@ -25,13 +25,13 @@ sub check_for_denovo_donor {
         ($number, my $null) = split /\//, ($tv->intron_number);
     # edge-case: insertion occurring right at the splice junction
     } else {  
-        $number = check_extended_splice_junctions_for_all_introns($tr, $slice, 1);
+        $number = check_extended_splice_junctions_for_all_introns($tv, $slice, 1);
         return 0 if $number == -1;
     }
 
     # get relevant exon and intron
-    my $intron = $introns[$number - 1];
-    my $exon = $exons[$number - 1];
+    my $intron = $introns->[$number - 1];
+    my $exon = $exons->[$number - 1];
     my $exon_length = abs ($exon->{start} - $exon->{end}) + 1;
 
     # if only predicting exon truncation events, filter intronic variants that couldn't possibly create an exonic de novo site 
@@ -163,7 +163,7 @@ sub check_for_denovo_donor {
         my $tailing_frame = ($exon_length - $leading_frame) % 3; # Number of bases to begin the first codon of the next exon
         
         # check the codon that spans the new junction (if there is none, this will be the first codon of the next exon)
-        my $next_exon = $exons[$number];
+        my $next_exon = $exons->[$number];
         my $codon_completion = substr $next_exon->seq->seq(), 0, 3 - $tailing_frame;
         my $current_codon = (substr $var_seq, $best_junc - $tailing_frame, $tailing_frame) . $codon_completion;
         

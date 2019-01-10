@@ -6,14 +6,15 @@ sub overlap {
 }
 
 sub get_gerp_weighted_dist {
-    my ($tr, $pos, $gerp_db, $cons_db) = @_[0..3];
+    my ($tv, $pos, $gerp_db, $cons_db) = @_[0..3];
 
     # collect some variables
+    my $tr = $tv->transcript;
     my $chr = $tr->seq_region_name();
-    my @exons = @{ $tr->get_all_Exons };
+    my $exons = $tv->_exons;
     my $strand = $tr->strand();
     my $transcript_id = $tr->{stable_id};
-    my $number_of_exons = scalar @exons;
+    my $number_of_exons = scalar @$exons;
 
     # determine boundaries of CDS sequence
     my ($stop_codon_pos, $start_codon_pos);
@@ -29,7 +30,7 @@ sub get_gerp_weighted_dist {
     my $weighted_dist = 0;
     my $dist = 0;
     for (my $i=0; $i <= $number_of_exons - 1; $i++) {
-        my $current_exon = $exons[$i];
+        my $current_exon = $exons->[$i];
         # skip exons upstream of variant
         if ($strand == -1) {
             next if $pos < $current_exon->start;
