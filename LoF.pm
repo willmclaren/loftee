@@ -45,6 +45,7 @@ use DBI;
 use base qw(Bio::EnsEMBL::Variation::Utils::BaseVepPlugin);
 use Bio::Perl;
 use List::Util qw(sum);
+use File::Basename qw(fileparse);
 
 sub get_header_info {
     return {
@@ -93,7 +94,7 @@ sub new {
     }
     
     # general splice prediction parameters
-    $self->{loftee_path} = '/vep/loftee/' if !defined($self->{loftee_path});
+    $self->{loftee_path} = (fileparse($INC{'LoF.pm'}))[1];
     $self->{get_splice_features} = 1 if !defined($self->{get_splice_features});
     $self->{weak_donor_cutoff} = -4 if !defined($self->{weak_donor_cutoff}); # used for filtering potenital de novo splice events: if the reference site falls below this threshold, skip it
     $self->{donor_motifs} = get_motif_info(catdir($self->{loftee_path}, 'splice_data/donor_motifs')); # returns a hash reference
@@ -141,7 +142,7 @@ sub new {
     # parameters for GERP-based filters
     $self->{tabix_path} = 'tabix' if !defined($self->{tabix_path});
     $self->{gerp_database} = 'false';
-    $self->{gerp_file} = '/vep/loftee/GERP_scores.final.sorted.txt.gz' if !defined($self->{gerp_file});
+    $self->{gerp_file} = catdir($self->{loftee_path}, 'GERP_scores.final.sorted.txt.gz') if !defined($self->{gerp_file});
     if (defined($self->{gerp_file})) {
         if ($self->{gerp_file} eq 'mysql') { # mysql
             my $db_info = "DBI:mysql:mysql_read_default_group=loftee;mysql_read_default_file=~/.my.cnf";
