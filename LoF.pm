@@ -230,7 +230,7 @@ sub run {
     
     # Filter in
     unless ($tv->transcript->biotype eq "protein_coding") {
-        return {};
+        return { LoF => "None" };
     }
     my $confidence = '';
     my $allele = $transcript_variation_allele->allele_string();
@@ -248,6 +248,7 @@ sub run {
     if ($genic_variant && !($UTR_variant || $other_lof)) {
         # extended splice - predict whether variant disrupts an annotated splice site
         my @results = get_effect_on_splice($tv, $vf, $allele, $vep_splice_lof, $self);
+
         my ($splice_disrupting, $feats, $splice_info) = @results;
         if (defined($splice_info)) {
             # record features used for prediction of splice site disruption
@@ -299,7 +300,7 @@ sub run {
         $confidence = 'HC';
     } else {
         if ($self->{apply_all} eq 'false') {
-            return { LoF_info => join(',', @info), LoF_flags => join(',', @flags), LoF_filter => join(',', @filters) };
+            return { LoF => "None", LoF_info => join(',', @info), LoF_flags => join(',', @flags), LoF_filter => join(',', @filters) };
         }
     }
 
