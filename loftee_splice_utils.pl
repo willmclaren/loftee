@@ -182,19 +182,21 @@ sub get_cds_dist_to_exon {
 }
 
 sub scan_seq {
-    my ($motifcacheref, $seq, $motif_type) = @_[0..2];
-    my %motif_hash = map { $_ => 1 } @ { $motifcacheref->{$motif_type} };
-    my $l = scalar keys %motif_hash;
+    my ($motif_hashref, $seq, $motif_type) = @_[0..2];
+
+    my $motifs = $motif_hashref->{$motif_type};
+
+    my $l = scalar keys %{$motifs};
     my $n = length($seq);
     my $hits = 0;
     for (my $i=0; $i < $n; $i++) {
         my $kmer = substr $seq, $i, 6;
-        $hits++ if exists($motif_hash{$kmer}) && length($kmer) == 6;
+        $hits++ if exists($motifs->{$kmer}) && length($kmer) == 6;
         my $kmer = substr $seq, $i, 7;
         last if (length($kmer) == 6);
-        $hits++ if exists($motif_hash{$kmer}) && length($kmer) == 7;
+        $hits++ if exists($motifs->{$kmer}) && length($kmer) == 7;
         my $kmer = substr $seq, $i, 8;
-        $hits++ if exists($motif_hash{$kmer}) && length($kmer) == 8;
+        $hits++ if exists($motifs->{$kmer}) && length($kmer) == 8;
     }
     return $hits;
 }
@@ -210,7 +212,8 @@ sub get_motif_info {
         open ( my $handle, '<', $file ) or die "Can't open $file: $!";
         chomp ( my @lines = <$handle> );
         close $handle;
-        $motif_cache{$motif} = \@lines;
+        my %motifs = map { $_ => 1 } @lines;
+        $motif_cache{$motif} = \%motifs;
     }
     return \%motif_cache;
 }
