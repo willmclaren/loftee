@@ -6,6 +6,8 @@ use List::MoreUtils qw(firstidx);
 use List::Util qw(sum);
 use List::MoreUtils 'pairwise';
 
+my $svm_cache = {};
+
 sub get_svm_info {
 	my $svm_dir = shift;
 	my %svm_cache;
@@ -20,7 +22,12 @@ sub get_svm_info {
 sub svm {
 	my ($cacheref, $featref, $kernel) = @_[0..2];
 	my %cache = % { $cacheref };
-	my %misc = % { $cache{misc} }; 
+	my %misc = % { $cache{misc} };
+
+	my $feat_key = join("_", map {$_ . ":" . $featref->{$_}} sort keys %$featref);
+	if(my $cached_result = $svm_cache->{$feat_key}) {
+		return $cached_result;
+	}
 	
 	# make sure feature vector lines up with support vectors
 	my %features = % { $featref };	
@@ -44,19 +51,23 @@ sub svm {
 	
 	# compute SVM decision function
 	my $margin = 0;
+	my $gamma = ${misc}{gamma};
 	for (my $i=1; $i < $nrow; $i++) {
 	   my @row = @ { $svm[$i] };
 	   my @sv = @row[0..$ncol-2];
 	   my $alpha = $row[-1];
 	   my $dot;
 	   if ($kernel eq "radial") {
-	   	$dot = rbf(\@scaled, \@sv, ${misc}{gamma});
+	   	$dot = rbf(\@scaled, \@sv, $gamma);
 	   } else {
 	   	$dot = sum(pairwise { $a * $b } @scaled, @sv);
 	   }
 	   $margin = $margin + ($alpha * $dot);
 	};
 	$margin = $margin - ${misc}{rho};
+
+	$svm_cache->{$feat_key} = $margin;
+
 	return $margin;
 }
 
@@ -64,10 +75,12 @@ sub svm {
 # radial basis function kernel
 sub rbf {
 	my ($v1, $v2, $gamma) = @_[0..2];
-	my @v1 = @$v1;
-	my @v2 = @$v2;
-	my @d = pairwise { $a - $b } @v1, @v2;
-	my $k = sum(pairwise { $a * $b } @d, @d);
+
+	my $k = 0;
+	for(my $i=0; $i<@$v1; $i++) {
+		$k += ($v1->[$i] - $v2->[$i]) ** 2;
+	}
+
 	return exp(-$gamma * $k);
 }
 
