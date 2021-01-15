@@ -53,13 +53,15 @@ sub svm {
 	my $margin = 0;
 	my $gamma = ${misc}{gamma};
 	for (my $i=1; $i < $nrow; $i++) {
-	   my @row = @ { $svm[$i] };
-	   my @sv = @row[0..$ncol-2];
-	   my $alpha = $row[-1];
+	   my $row = $svm[$i];
+	   my $alpha = $row->[-1];
 	   my $dot;
 	   if ($kernel eq "radial") {
-	   	$dot = rbf(\@scaled, \@sv, $gamma);
+	   	# we can just pass all of the list referenced by $row as the for loop in rbf()
+	   	# will only use up to the length of @scaled
+	   	$dot = rbf(\@scaled, $row, $gamma);
 	   } else {
+	   	my @sv = @$row[0..$ncol-2];
 	   	$dot = sum(pairwise { $a * $b } @scaled, @sv);
 	   }
 	   $margin = $margin + ($alpha * $dot);
