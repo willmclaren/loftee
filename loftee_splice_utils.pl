@@ -182,7 +182,11 @@ sub get_cds_dist_to_exon {
 }
 
 sub scan_seq {
-    my ($motif_hashref, $seq, $motif_type) = @_[0..2];
+    my ($motif_hashref, $seq, $motif_type, $scan_seq_cache) = @_[0..3];
+
+    if(my $result = $scan_seq_cache->{$motif_type}->{$seq}) {
+        return $result;
+    }
 
     my $motifs = $motif_hashref->{$motif_type};
 
@@ -198,6 +202,9 @@ sub scan_seq {
         my $kmer = substr $seq, $i, 8;
         $hits++ if exists($motifs->{$kmer}) && length($kmer) == 8;
     }
+
+    $scan_seq_cache->{$motif_type}->{$seq} = $hits;
+    
     return $hits;
 }
 

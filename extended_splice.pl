@@ -133,12 +133,14 @@ sub get_effect_on_splice {
     my $flanksize = $cache->{sre_flanksize};
     my ($ex, $in) = get_sre_flanks($slice, [$left, $right], $strand, $allele, $flanksize, $donor);
 
+    my $scan_seq_cache = $vf->{_scan_seq_cache} ||= {};
+
     # initialize feature vector
     my %features = (
-        $type . "_ESE" => scan_seq($motifs, $ex, 'ese'),
-        $type . "_ESS" => scan_seq($motifs, $ex, 'ess'),
-        $type . "_ISE" => scan_seq($motifs, $in, 'ise'),
-        $type . "_ISS" => scan_seq($motifs, $in, 'iss'),
+        $type . "_ESE" => scan_seq($motifs, $ex, 'ese', $scan_seq_cache),
+        $type . "_ESS" => scan_seq($motifs, $ex, 'ess', $scan_seq_cache),
+        $type . "_ISE" => scan_seq($motifs, $in, 'ise', $scan_seq_cache),
+        $type . "_ISS" => scan_seq($motifs, $in, 'iss', $scan_seq_cache),
         $type . "_MES_DIFF" => $mes_diff,
         $type . "_GERP_DIFF" => $gerp_diff,
         "BRANCHPOINT_DISTANCE" => $bp_dist,

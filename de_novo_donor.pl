@@ -95,6 +95,8 @@ sub check_for_denovo_donor {
     my ($best_delta, $best_mes_delta, %best_feats); # best_delta is the size of the resulting exon truncation/extension event (deletions are negative)
     my $motifs = $cache->{donor_motifs};
 
+    my $scan_seq_cache = $vf->{_scan_seq_cache} ||= {};
+
     # Scan for newly created splice sites
     for (my $pos=$var_pos - 8; $pos <= $var_pos + $adj; $pos++) {
         # get dimensions of putative new transcript
@@ -126,10 +128,10 @@ sub check_for_denovo_donor {
 
         # get features
         my %features = (
-            "ese"  => scan_seq($motifs, $updown, 'ese') - scan_seq($motifs, $upup, 'ese'),
-            "ess" => scan_seq($motifs, $updown, 'ess') - scan_seq($motifs, $upup, 'ess'),
-            "ise" => scan_seq($motifs, $downdown, 'ise') - scan_seq($motifs, $downup, 'ise'),
-            "iss" => scan_seq($motifs, $downdown, 'iss') - scan_seq($motifs, $downup, 'iss'),
+            "ese" => scan_seq($motifs, $updown,   'ese', $scan_seq_cache) - scan_seq($motifs, $upup,   'ese', $scan_seq_cache),
+            "ess" => scan_seq($motifs, $updown,   'ess', $scan_seq_cache) - scan_seq($motifs, $upup,   'ess', $scan_seq_cache),
+            "ise" => scan_seq($motifs, $downdown, 'ise', $scan_seq_cache) - scan_seq($motifs, $downup, 'ise', $scan_seq_cache),
+            "iss" => scan_seq($motifs, $downdown, 'iss', $scan_seq_cache) - scan_seq($motifs, $downup, 'iss', $scan_seq_cache),
             "MESdiff" => ($new_junc > $ref_junc) ? $alt_mes - $ref_mes : $ref_mes - $alt_mes
         );
 
