@@ -312,7 +312,7 @@ sub run {
             # push(@filters, 'END_TRUNC') if ($lof_percentile >= 1-$self->{filter_position});
 
             # using distance from stop codon weighted by GERP
-            my $slice = $vf->feature_Slice();
+            my $slice = vf_feature_slice($vf);
             $lof_position = $slice->start if $lof_position < 0;
             my ($gerp_dist, $dist) = get_gerp_weighted_dist($tv, $lof_position, $self->{gerp_database}, $self->{conservation_database});
             push(@info, 'GERP_DIST:' . $gerp_dist);
@@ -499,7 +499,7 @@ sub check_nagnag_variant {
     
     # Cache splice sites
     unless (exists($variation_feature->{splice_context_seq_cache})) {
-        my $seq = uc($variation_feature->feature_Slice->expand(4, 4)->seq);
+        my $seq = uc(vf_feature_slice($variation_feature)->expand(4, 4)->seq);
         $seq = ($transcript_variation->transcript->strand() == -1) ? reverse_complement($seq)->seq() : $seq;
         $variation_feature->{splice_context_seq_cache} = $seq;
     }
@@ -614,6 +614,16 @@ sub get_last_exon_coding_length {
         }
     }
     return $last_exon_len;
+}
+
+sub vf_feature_slice {
+    my $vf = shift;
+
+    if(!exists($vf->{_cached_feature_slice})) {
+        $vf->{_cached_feature_slice} = $vf->feature_Slice();
+    }
+
+    return $vf->{_cached_feature_slice};
 }
 
 1;

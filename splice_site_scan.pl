@@ -21,7 +21,7 @@ sub scan_for_alternative_splice_sites {
     my $strand = $tr->strand();
     
     # mutation info
-    my $slice = $vf->feature_Slice();
+    my $slice = vf_feature_slice($vf);
     my $allele = $info->{allele};
     
     # splice site info

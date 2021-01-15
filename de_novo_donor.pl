@@ -9,7 +9,7 @@ sub check_for_denovo_donor {
     # intialize some variables
     my $tr = $tv->transcript;
     my $strand = $tr->strand();
-    my $slice = $vf->feature_Slice();
+    my $slice = vf_feature_slice($vf);
     my ($ref, $alt) = split /\//, ($allele);
     my @null = (0, undef, undef, undef);
     return @null if $alt eq '*'; 

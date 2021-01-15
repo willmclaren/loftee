@@ -5,7 +5,7 @@ use List::Util qw[min max];
 sub get_effect_on_splice {
     my ($tv, $vf, $allele, $splice_lof, $cache) = @_[0..4];
 
-    my $slice = $vf->feature_Slice();
+    my $slice = vf_feature_slice($vf);
     my ($intron, $intron_idx, $affected_ss, $splice_lb, $splice_rb) = check_if_extended_splice_variant($tv, $slice);
     return (0, undef, undef) if $affected_ss == 0; # if variant does not overlap an extended splice site
 

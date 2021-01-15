@@ -5,7 +5,7 @@ sub check_5UTR {
     #my $strand = $variation_feature->{strand};
     my $strand = $transcript_variation->transcript->strand;
     # Start is always less than or equal to end regardless of the orientation of the slice (true for introns as well).
-    my $slice = $variation_feature->feature_Slice();
+    my $slice = vf_feature_slice($variation_feature);
 
     # filter if variant occurs upstream of first intron
     if ($strand == 1) {
@@ -22,7 +22,7 @@ sub check_3UTR {
     #my $strand = $variation_feature->{strand};
     my $strand = $transcript_variation->transcript->strand;
     # Start is always less than or equal to end regardless of the orientation of the slice (true for introns as well).
-    my $slice = $variation_feature->feature_Slice();
+    my $slice = vf_feature_slice($variation_feature);
     
     # filter if variant occurs downstream of last intron (i.e. not actually a splice donor site)
     if ($strand == 1) {
