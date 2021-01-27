@@ -12,7 +12,7 @@
 
  mv LoF.pm ~/.vep/Plugins
  perl variant_effect_predictor.pl -i variations.vcf --plugin LoF
- perl variant_effect_predictor.pl -i variations.vcf --plugin LoF,filter_position:0.05,...
+ perl variant_effect_predictor.pl -i variations.vcf --plugin LoF,...
 
 =head1 DESCRIPTION
 
@@ -74,7 +74,7 @@ sub new {
     # general LOFTEE parameters
     $self->{loftee_path} = (fileparse($INC{'LoF.pm'}))[1] if!defined($self->{loftee_path});
     $self->{data_path} = catdir($self->{loftee_path}, 'data') if !defined($self->{data_path});
-    $self->{filter_position} = 0.05 if !defined($self->{filter_position});
+    # $self->{filter_position} = 0.05 if !defined($self->{filter_position});
     $self->{min_intron_size} = 15 if !defined($self->{min_intron_size});
     $self->{check_complete_cds} = 'false' if !defined($self->{check_complete_cds});
     $self->{use_gerp_end_trunc} = 0 if !defined($self->{check_complete_cds});
@@ -112,6 +112,7 @@ sub new {
     $self->{seq} = \%seq;
 
     # extended splice parameters
+    $self->{run_splice_predictions} = 0 if !defined($self->{run_splice_predictions});
     $self->{donor_disruption_mes_cutoff} = 6 if !defined($self->{donor_disruption_mes_cutoff}); # minimum magnitude of MES disruption to be considered splice-disrupting
     $self->{acceptor_disruption_mes_cutoff} = 7 if !defined($self->{acceptor_disruption_mes_cutoff});
     $self->{donor_disruption_cutoff} = 0.98 if !defined($self->{donor_disruption_cutoff});
@@ -230,7 +231,7 @@ sub run {
     
     # Filter in
     unless ($tv->transcript->biotype eq "protein_coding") {
-        return { LoF => "None" };
+        return {};
     }
     my $confidence = '';
     my $allele = $transcript_variation_allele->allele_string();
@@ -245,7 +246,7 @@ sub run {
     my $lof_position = -1;
 
     # splice predictions
-    if ($genic_variant && !($UTR_variant || $other_lof)) {
+    if ($self->{run_splice_predictions} && ($genic_variant && !($UTR_variant || $other_lof))) {
         # extended splice - predict whether variant disrupts an annotated splice site
         my @results = get_effect_on_splice($tv, $vf, $allele, $vep_splice_lof, $self);
 
@@ -296,15 +297,21 @@ sub run {
         }
     }
 
-    if ($loftee_splice_lof || $vep_splice_lof || $other_lof) {
+    if ($vep_splice_lof || $other_lof) {
         $confidence = 'HC';
+    } elsif ($loftee_splice_lof) {
+        $confidence = 'OS';
     } else {
         if ($self->{apply_all} eq 'false') {
-            return { LoF => "None", LoF_info => join(',', @info), LoF_flags => join(',', @flags), LoF_filter => join(',', @filters) };
+            my $output_hash = {};
+            if (scalar @info > 0) {
+                $output_hash->{'LoF_info'} = join(',', @info)
+            }
+            return $output_hash;
         }
     }
 
-    if ($tv->exon_number) {
+    if ($other_lof && $tv->exon_number) {
 
         # filter LoF variants occurring near the reference stop codon
         if ($tv->cds_end) {
@@ -335,7 +342,7 @@ sub run {
             if (lc($self->{check_complete_cds}) eq 'true') {
                 push(@filters, 'INCOMPLETE_CDS') if (check_incomplete_cds($tv));
             }
-            push(@flags, 'NON_CAN_SPLICE_SURR') if (check_surrounding_introns($tv, $self->{min_intron_size}));
+            # push(@flags, 'NON_CAN_SPLICE_SURR') if (check_surrounding_introns($tv, $self->{min_intron_size}));
         }
         
         if (lc($self->{conservation_file}) ne 'false') {
@@ -360,10 +367,13 @@ sub run {
         } else {
             # Intron size filter
             my $intron_size = get_intron_size($tv);
-            push(@info, 'INTRON_SIZE:' . $intron_size);           
-            push(@filters, 'SMALL_INTRON') if ($intron_size < $self->{min_intron_size});                      
-            push(@filters, 'NON_CAN_SPLICE') if (check_for_non_canonical_intron_motif($tv));
-            if ("splice_acceptor_variant" ~~ @consequences || "splice_donor_variant" ~~ @consequences) {
+            push(@info, 'INTRON_SIZE:' . $intron_size);
+            push(@filters, 'SMALL_INTRON') if ($intron_size < $self->{min_intron_size});
+            if ($vep_splice_lof) {
+                if ("splice_donor_variant" ~~ @consequences) {
+                    push(@filters, 'GC_TO_GT_DONOR') if (intron_motif_start_GC_to_GT($tv));
+                }
+                push(@flags, 'NON_CAN_SPLICE') if (check_for_non_canonical_intron_motif($tv));
                 push(@filters, '5UTR_SPLICE') if $fiveUTR_variant;
                 push(@filters, '3UTR_SPLICE') if $threeUTR_variant;
             } 
@@ -377,11 +387,21 @@ sub run {
         push(@filters, 'ANC_ALLELE') if (check_for_ancestral_allele($transcript_variation_allele, $self->{human_ancestor_fa}));
     }
     
-    if ($confidence eq 'HC' && scalar @filters > 0) {
+    my $output_hash = {};
+    if ($confidence ne '' && scalar @filters > 0) {
         $confidence = 'LC';
+        $output_hash->{'LoF_filter'} = join(',', @filters);
     }
     
-    return { LoF => $confidence, LoF_filter => join(',', @filters), LoF_flags => join(',', @flags), LoF_info => join(',', @info) };
+    $output_hash->{'LoF'} = $confidence;
+    if (scalar @flags > 0) {
+        $output_hash->{'LoF_flags'} = join(',', @flags);
+    }
+    if (scalar @info > 0) {
+        $output_hash->{'LoF_info'} = join(',', @info);
+    }
+
+    return $output_hash;
 }
 
 sub DESTROY {
@@ -398,6 +418,35 @@ sub small_intron {
     my $intron_number = shift;
     my $min_intron_size = shift;
     return ($tv->_introns->[$intron_number]->length < $min_intron_size);
+}
+
+sub intron_motif_start_GC_to_GT {
+    my $transcript_variation = shift;
+
+    my ($intron_number, $total_introns) = split /\//, ($transcript_variation->intron_number);
+    $intron_number--;
+    my $transcript = $transcript_variation->transcript;
+    my @gene_introns = @{$transcript->get_all_Introns()};
+
+    # Cache intron sequence
+    unless (exists($transcript->{intron_cache}->{$intron_number})) {
+        $transcript->{intron_cache}->{$intron_number} = $gene_introns[$intron_number]->seq;
+    }
+    my $sequence = $transcript->{intron_cache}->{$intron_number};
+
+    my ($ref, $alt) = map {$_->feature_seq} @{$transcript_variation->get_all_TranscriptVariationAlleles()};
+
+    print "Intron starts with: " . substr($sequence, 0, 2) . "\n" if ($debug && substr($sequence, 0, 2) ne 'GT');
+
+    # my $canonical = substr($sequence, 0, 2) eq 'GT';
+    my $gc_to_canonical = (substr($sequence, 0, 2) eq 'GC') && ($ref eq 'C') && ($alt eq 'T');
+
+    # print STDERR "Var: " . $transcript_variation->variation_feature->start . " ";
+    # print STDERR "Ref:" . substr($sequence, 0, 2) . " ";
+    # print STDERR "Allele: " . $ref . " " . $alt . " ";
+    # print STDERR "can: " . $canonical . " ncan: " . $gc_to_canonical . "res: " . !($canonical || $gc_to_canonical) . "\n";
+
+    return $gc_to_canonical;
 }
 
 sub intron_motif_start {
